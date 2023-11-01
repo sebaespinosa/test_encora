@@ -1,3 +1,5 @@
+
+#Providers
 terraform {
   required_providers {
     aws = {
@@ -7,6 +9,7 @@ terraform {
   }
 }
 
+#Variables
 variable "aws_region" {
   description = "The AWS region in which to create the VPC."
   type        = string
@@ -23,9 +26,12 @@ provider "aws" {
   region = var.aws_region
 }
 
+data "aws_caller_identity" "current" {}
+
+
 #VPC
 resource "aws_vpc" "example" {
-  cidr_block = "10.0.0.0/16" # Modify the CIDR block as needed
+  cidr_block = "10.0.0.0/16" # Demo CIDR
   enable_dns_support = true
   enable_dns_hostnames = true
 }
@@ -54,6 +60,55 @@ resource "aws_route" "internet_route" {
   destination_cidr_block = "0.0.0.0/0"
   gateway_id             = aws_internet_gateway.example.id
 }
+
+#Policy to restrict access
+resource "aws_iam_instance_profile" "example" {
+  name = "my-instance-profile"
+}
+
+resource "aws_iam_policy" "restrict_owner_access" {
+  name        = "restrict-owner-access"
+  description = "Deny access to non-owners"
+  
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action = "*",
+        Effect = "Deny",
+        Resource = "*",
+        Condition = {
+          StringNotEqualsIfExists = {
+            "aws:RequestedOwner" = data.aws_caller_identity.current.account_id
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role" "example" {
+  name = "my-role"
+  
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action = "sts:AssumeRole",
+        Effect = "Allow",
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  inline_policy {
+    name = "restrict-access"
+    policy = aws_iam_policy.restrict_owner_access.policy
+  }
+}
+
 
 #Autoscaling group with their launch configuration
 resource "aws_lb_target_group" "example" {
@@ -86,6 +141,8 @@ resource "aws_launch_configuration" "example" {
   name_prefix = "my-lc"
   image_id = "ami-011899242bb902164"  # Specify your desired AMI ID
   instance_type = "t2.micro"
+
+  iam_instance_profile = aws_iam_instance_profile.example.name
 }
 
 #Aplication Load Balancers
