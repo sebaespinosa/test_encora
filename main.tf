@@ -3,8 +3,8 @@
 terraform {
   required_providers {
     aws = {
-        source = "hashicorp/aws"
-        version = "~> 3.0"
+      source  = "hashicorp/aws"
+      version = "~> 3.0"
     }
   }
 }
@@ -32,17 +32,17 @@ data "aws_availability_zones" "available" {}
 
 #VPC
 resource "aws_vpc" "vpc_ttest" {
-  cidr_block = "10.0.0.0/16" # Demo CIDR
-  enable_dns_support = true
+  cidr_block           = "10.0.0.0/16" # Demo CIDR
+  enable_dns_support   = true
   enable_dns_hostnames = true
 }
 
 #2 Subnets
 resource "aws_subnet" "subnets_ttest" {
-  count                  = 2
-  vpc_id                 = aws_vpc.vpc_ttest.id
-  availability_zone      = element(data.aws_availability_zones.available.names, count.index)
-  cidr_block             = "10.0.${count.index}.0/24"
+  count                   = 2
+  vpc_id                  = aws_vpc.vpc_ttest.id
+  availability_zone       = element(data.aws_availability_zones.available.names, count.index)
+  cidr_block              = "10.0.${count.index}.0/24"
   map_public_ip_on_launch = true
 }
 
@@ -70,13 +70,13 @@ resource "aws_iam_instance_profile" "instance_profile_ttest" {
 resource "aws_iam_policy" "restrict_owner_access" {
   name        = "restrict-owner-access"
   description = "Deny access to non-owners"
-  
+
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
       {
-        Action = "*",
-        Effect = "Deny",
+        Action   = "*",
+        Effect   = "Deny",
         Resource = "*",
         Condition = {
           StringNotEqualsIfExists = {
@@ -90,7 +90,7 @@ resource "aws_iam_policy" "restrict_owner_access" {
 
 resource "aws_iam_role" "iam_role_ttest" {
   name = "iam_role_ttest"
-  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
@@ -105,7 +105,7 @@ resource "aws_iam_role" "iam_role_ttest" {
   })
 
   inline_policy {
-    name = "restrict-access"
+    name   = "restrict-access"
     policy = aws_iam_policy.restrict_owner_access.policy
   }
 }
@@ -121,26 +121,26 @@ resource "aws_lb_target_group" "lb_target_group_ttest" {
 }
 
 resource "aws_autoscaling_group" "autoscaling_group_ttest" {
-  name = "autoscaling_group_ttest"
+  name                 = "autoscaling_group_ttest"
   launch_configuration = aws_launch_configuration.launch_configuration_ttest.name
-  min_size = 2
-  max_size = 4
-  desired_capacity = 2
+  min_size             = 2
+  max_size             = 4
+  desired_capacity     = 2
   #availability_zones = data.aws_availability_zones.available.names
   target_group_arns = [aws_lb_target_group.lb_target_group_ttest.arn]
 
   #vpc_zone_identifier = [aws_subnet.example1.id, aws_subnet.example2.id]
   vpc_zone_identifier = aws_subnet.subnets_ttest[*].id
 
-  default_cooldown = 300
+  default_cooldown          = 300
   health_check_grace_period = 300
-  termination_policies = ["OldestLaunchConfiguration"]
+  termination_policies      = ["OldestLaunchConfiguration"]
 }
 
 ##Launch configuration definition for both instances (auto scaling group handle the minimum of 2)
 resource "aws_launch_configuration" "launch_configuration_ttest" {
-  name_prefix = "my-lc"
-  image_id = "ami-011899242bb902164"  # Specify your desired AMI ID
+  name_prefix   = "my-lc"
+  image_id      = "ami-011899242bb902164" # Specify your desired AMI ID
   instance_type = "t2.micro"
 
   iam_instance_profile = aws_iam_instance_profile.instance_profile_ttest.name
@@ -148,24 +148,24 @@ resource "aws_launch_configuration" "launch_configuration_ttest" {
 
 #Aplication Load Balancer
 resource "aws_lb" "lb_ttest" {
-  name = "lb-ttest"
-  internal = false
-  load_balancer_type = "application"
+  name                       = "lb-ttest"
+  internal                   = false
+  load_balancer_type         = "application"
   enable_deletion_protection = false
-  subnets = aws_subnet.subnets_ttest[*].id
+  subnets                    = aws_subnet.subnets_ttest[*].id
 
   enable_http2 = true
 }
 
 resource "aws_lb_listener" "lb_listener_ttest" {
   load_balancer_arn = aws_lb.lb_ttest.arn
-  port = var.alb_port
-  protocol = "HTTP"
+  port              = var.alb_port
+  protocol          = "HTTP"
   default_action {
     type = "fixed-response"
     fixed_response {
       content_type = "text/plain"
-      status_code = "200"
+      status_code  = "200"
       message_body = "OK"
     }
   }

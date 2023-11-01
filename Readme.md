@@ -10,3 +10,5 @@
 - No testing was required
 - No need to store Terraform state remote
 - No branching model required
+- No need to prevent destruction of resources
+- 
