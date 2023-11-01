@@ -55,6 +55,44 @@ resource "aws_route" "internet_route" {
   gateway_id             = aws_internet_gateway.example.id
 }
 
+#Autoscaling group with their launch configuration
+resource "aws_lb_target_group" "example" {
+  name        = "my-target-group"
+  port        = var.alb_port
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.example.id
+  target_type = "instance"
+}
+
+resource "aws_autoscaling_group" "example" {
+  name = "my-asg"
+  launch_configuration = aws_launch_configuration.example.name
+  min_size = 2
+  max_size = 4
+  desired_capacity = 2
+  #availability_zones = data.aws_availability_zones.available.names
+  target_group_arns = [aws_lb_target_group.example.arn]
+
+  #vpc_zone_identifier = [aws_subnet.example1.id, aws_subnet.example2.id]
+  vpc_zone_identifier = aws_subnet.subnet_a[*].id
+
+  default_cooldown = 300
+  health_check_grace_period = 300
+  termination_policies = ["OldestLaunchConfiguration"]
+}
+
+##Launch configuration definition for both instances (auto scaling group handle the minimum of 2)
+resource "aws_launch_configuration" "example" {
+  name_prefix = "my-lc"
+  image_id = "ami-011899242bb902164"  # Specify your desired AMI ID
+  instance_type = "t2.micro"
+}
+
+
+
+
+
+
 data "aws_availability_zones" "available" {}
 
 
