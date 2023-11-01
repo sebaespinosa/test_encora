@@ -9,3 +9,4 @@
 - Use of local AWS Confing, no need to set up secrets
 - No testing was required
 - No need to store Terraform state remote
+- No branching model required
