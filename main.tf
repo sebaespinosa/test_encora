@@ -26,44 +26,45 @@ provider "aws" {
   region = var.aws_region
 }
 
+#Data blocks
 data "aws_caller_identity" "current" {}
-
+data "aws_availability_zones" "available" {}
 
 #VPC
-resource "aws_vpc" "example" {
+resource "aws_vpc" "vpc_ttest" {
   cidr_block = "10.0.0.0/16" # Demo CIDR
   enable_dns_support = true
   enable_dns_hostnames = true
 }
 
 #2 Subnets
-resource "aws_subnet" "subnet_a" {
+resource "aws_subnet" "subnets_ttest" {
   count                  = 2
-  vpc_id                 = aws_vpc.example.id
+  vpc_id                 = aws_vpc.vpc_ttest.id
   availability_zone      = element(data.aws_availability_zones.available.names, count.index)
   cidr_block             = "10.0.${count.index}.0/24"
   map_public_ip_on_launch = true
 }
 
 #Route Table
-resource "aws_route_table" "custom_route_table" {
-  vpc_id = aws_vpc.example.id
+resource "aws_route_table" "custom_route_table_ttest" {
+  vpc_id = aws_vpc.vpc_ttest.id
 }
 
 ##Internet Gateway for routing through internet and not local routing
-resource "aws_internet_gateway" "example" {
-  vpc_id = aws_vpc.example.id
+resource "aws_internet_gateway" "internet_gateway_ttest" {
+  vpc_id = aws_vpc.vpc_ttest.id
 }
 
 resource "aws_route" "internet_route" {
-  route_table_id         = aws_route_table.custom_route_table.id
+  route_table_id         = aws_route_table.custom_route_table_ttest.id
   destination_cidr_block = "0.0.0.0/0"
-  gateway_id             = aws_internet_gateway.example.id
+  gateway_id             = aws_internet_gateway.internet_gateway_ttest.id
 }
 
 #Policy to restrict access
-resource "aws_iam_instance_profile" "example" {
-  name = "my-instance-profile"
+resource "aws_iam_instance_profile" "instance_profile_ttest" {
+  name = "instance_profile_ttest"
 }
 
 resource "aws_iam_policy" "restrict_owner_access" {
@@ -87,8 +88,8 @@ resource "aws_iam_policy" "restrict_owner_access" {
   })
 }
 
-resource "aws_iam_role" "example" {
-  name = "my-role"
+resource "aws_iam_role" "iam_role_ttest" {
+  name = "iam_role_ttest"
   
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -111,25 +112,25 @@ resource "aws_iam_role" "example" {
 
 
 #Autoscaling group with their launch configuration
-resource "aws_lb_target_group" "example" {
+resource "aws_lb_target_group" "lb_target_group_ttest" {
   name        = "my-target-group"
   port        = var.alb_port
   protocol    = "HTTP"
-  vpc_id      = aws_vpc.example.id
+  vpc_id      = aws_vpc.vpc_ttest.id
   target_type = "instance"
 }
 
-resource "aws_autoscaling_group" "example" {
-  name = "my-asg"
-  launch_configuration = aws_launch_configuration.example.name
+resource "aws_autoscaling_group" "autoscaling_group_ttest" {
+  name = "autoscaling_group_ttest"
+  launch_configuration = aws_launch_configuration.launch_configuration_ttest.name
   min_size = 2
   max_size = 4
   desired_capacity = 2
   #availability_zones = data.aws_availability_zones.available.names
-  target_group_arns = [aws_lb_target_group.example.arn]
+  target_group_arns = [aws_lb_target_group.lb_target_group_ttest.arn]
 
   #vpc_zone_identifier = [aws_subnet.example1.id, aws_subnet.example2.id]
-  vpc_zone_identifier = aws_subnet.subnet_a[*].id
+  vpc_zone_identifier = aws_subnet.subnets_ttest[*].id
 
   default_cooldown = 300
   health_check_grace_period = 300
@@ -137,28 +138,27 @@ resource "aws_autoscaling_group" "example" {
 }
 
 ##Launch configuration definition for both instances (auto scaling group handle the minimum of 2)
-resource "aws_launch_configuration" "example" {
+resource "aws_launch_configuration" "launch_configuration_ttest" {
   name_prefix = "my-lc"
   image_id = "ami-011899242bb902164"  # Specify your desired AMI ID
   instance_type = "t2.micro"
 
-  iam_instance_profile = aws_iam_instance_profile.example.name
+  iam_instance_profile = aws_iam_instance_profile.instance_profile_ttest.name
 }
 
-#Aplication Load Balancers
 #Aplication Load Balancer
-resource "aws_lb" "example" {
-  name = "my-alb"
+resource "aws_lb" "lb_ttest" {
+  name = "lb-ttest"
   internal = false
   load_balancer_type = "application"
   enable_deletion_protection = false
-  subnets = aws_subnet.subnet_a[*].id
+  subnets = aws_subnet.subnets_ttest[*].id
 
   enable_http2 = true
 }
 
-resource "aws_lb_listener" "example" {
-  load_balancer_arn = aws_lb.example.arn
+resource "aws_lb_listener" "lb_listener_ttest" {
+  load_balancer_arn = aws_lb.lb_ttest.arn
   port = var.alb_port
   protocol = "HTTP"
   default_action {
@@ -170,44 +170,3 @@ resource "aws_lb_listener" "example" {
     }
   }
 }
-
-
-
-
-
-data "aws_availability_zones" "available" {}
-
-
-
-output "vpc_id" {
-  value = aws_vpc.example.id
-}
-
-output "subnet_ids" {
-  value = aws_subnet.subnet_a[*].id
-}
-
-output "route_table_id" {
-  value = aws_route_table.custom_route_table.id
-}
-
-output "internet_route" {
-  value = aws_route.internet_route.id
-}
-
-output "internet_gateway_id" {
-  value = aws_internet_gateway.example.id
-}
-
-
-
-
-#provider "aws" {
-#  region = "us-east-1"
-#}
-#
-#resource "aws_instance" "example" {
-#  ami = "ami-011899242bb902164" # Ubuntu 20.04 LTS // us-east-1
-#  instance_type = "t2.micro"
-#  provider = aws
-#}
