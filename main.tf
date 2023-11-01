@@ -88,6 +88,31 @@ resource "aws_launch_configuration" "example" {
   instance_type = "t2.micro"
 }
 
+#Aplication Load Balancers
+#Aplication Load Balancer
+resource "aws_lb" "example" {
+  name = "my-alb"
+  internal = false
+  load_balancer_type = "application"
+  enable_deletion_protection = false
+  subnets = aws_subnet.subnet_a[*].id
+
+  enable_http2 = true
+}
+
+resource "aws_lb_listener" "example" {
+  load_balancer_arn = aws_lb.example.arn
+  port = var.alb_port
+  protocol = "HTTP"
+  default_action {
+    type = "fixed-response"
+    fixed_response {
+      content_type = "text/plain"
+      status_code = "200"
+      message_body = "OK"
+    }
+  }
+}
 
 
 
